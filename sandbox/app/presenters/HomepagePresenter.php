@@ -1,13 +1,27 @@
 <?php
 use \Nette\Application\UI\Form;
+use \Nette\Caching\Cache;
 /**
  * Homepage presenter.
  */
 class HomepagePresenter extends BasePresenter
 {
+	/** @var \Nette\Caching\Cache */
+	private $cache;
+	
+	public function startup() {
+		parent::startup();
+		$storage = new Nette\Caching\Storages\FileStorage(__DIR__ . '/../../temp');
+		$this->cache = new Cache($storage);
+	}
 
 	public function renderDefault()	{
 		$this->template->anyVariable = 'any value';
+	}
+	
+	public function renderPreview($key) {		
+		$this->template->data = $this->cache->load($key);
+		
 	}
 	
 	protected function createComponentLaidDownCylinder() {
@@ -23,7 +37,7 @@ class HomepagePresenter extends BasePresenter
 		$form->setDefaults(array(
 			"output" => "0.001",
 			"bonusHeight" => 0,
-			"bonusVolume" => 0,
+			"bonusDiameter" => 0,
 			"step" => 1,
 		));
 		return $form;
@@ -40,8 +54,11 @@ class HomepagePresenter extends BasePresenter
 		$model->setBonus($values->bonusDiameter, $values->bonusHeight);
 		$model->calculate();
 		$model->convert();
-		$model->printExcel();
-		die(print_r($model->getAnswer()));	
+		
+		$data = $model->getAnswer();
+		$key = time();
+		$this->cache->save($key, $data);
+		$this->redirect("preview", $key);
 	}
 	
 	protected function createComponentCylinderAndBrick() {
@@ -50,12 +67,42 @@ class HomepagePresenter extends BasePresenter
 		$form->addText("width", "Width");
 		$form->addText("length", "Length");
 		$form->addText("arcHeight", "Arch height");
+		$form->addText("bonusHeight", "Kalnik vyska");
+		$form->addText("bonusDiameter", "Kalnik diameter");
 		$form->addText("step", "Step");
 		$form->addSelect("output", "Output units", $this->getOutputArray());
 		$form->addSubmit("submit", "Calculate");
-		
-		$form->setDefaults(array("output" => "0.001"));
+		$form->onSuccess[] = $this->cylinderAndBrickSubmitted;
+		$form->setDefaults(array(
+			"output" => "0.001",
+			"bonusHeight" => 0,
+			"bonusDiameter" => 0,
+			"step" => 1,
+		));
 		return $form;
+	}
+	
+	public function cylinderAndBrickSubmitted(Form $form) {
+		$values = $form->getValues();
+		
+		$height = $values->height;
+		$width = $values->width;
+		$length = $values->length;
+		$arcHeight = $values->arcHeight;
+		$bonusHeight = $values->bonusHeight;
+		$bonusDiameter = $values->bonusDiameter;
+		$step = $values->step;
+		$outputUnit = $values->output;
+		
+		$model = new CubeAndCircleSegment($height, $width, $length, $arcHeight, $step, $outputUnit);
+		$model->setBonus($bonusDiameter, $bonusHeight);
+		$model->calculate();
+		$model->convert();
+		
+		$data = $model->getAnswer();
+		$key = time();
+		$this->cache->save($key, $data);
+		$this->redirect("preview", $key);
 	}
 	
 	protected function createComponentBrick() {

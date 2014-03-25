@@ -1,0 +1,14 @@
+{block content}
+<table>
+	<thead>
+		<th>Height</th>
+		<th>Volume</th>
+	</thead>
+	<tbody>
+		<tr n:foreach="$data as $d">
+			<td>{$d['h']}</td>
+			<td>{$d['V']}</td>
+		</tr>
+	</tbody>
+</table>
+{/block}
